@@ -1,4 +1,5 @@
-import { AlertTriangle, CheckCircle2, Clock3, DatabaseZap } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock3, DatabaseZap, RotateCcw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import type { StatusTone } from "./types";
 
 type StatusPanelProps = {
@@ -6,6 +7,7 @@ type StatusPanelProps = {
   message: string;
   queryCount: number;
   leadCount: number;
+  onRetry?: () => void;
 };
 
 const iconMap = {
@@ -15,7 +17,7 @@ const iconMap = {
   error: AlertTriangle,
 };
 
-export function StatusPanel({ tone, message, queryCount, leadCount }: StatusPanelProps) {
+export function StatusPanel({ tone, message, queryCount, leadCount, onRetry }: StatusPanelProps) {
   const Icon = iconMap[tone];
 
   return (
@@ -23,6 +25,12 @@ export function StatusPanel({ tone, message, queryCount, leadCount }: StatusPane
       <div className={`status-panel status-panel-${tone}`} role="status" aria-live="polite">
         <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
         <span className="font-bold">{message}</span>
+        {tone === "error" && onRetry ? (
+          <Button type="button" variant="table" size="sm" onClick={onRetry} className="ml-auto">
+            <RotateCcw className="h-4 w-4" aria-hidden="true" />
+            Retry
+          </Button>
+        ) : null}
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
