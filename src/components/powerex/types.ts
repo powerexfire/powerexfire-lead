@@ -11,9 +11,21 @@ export type Lead = {
 };
 
 export type SearchQuery = {
+  id?: string;
   industry: string;
   location: string;
   query: string;
+};
+
+export type LeadActivity = {
+  id: string;
+  action: "generate" | "syncQueries" | "syncLeads" | "saveLeads";
+  industry: string | null;
+  location: string | null;
+  result_count: number;
+  status: "success" | "error";
+  message: string | null;
+  created_at: string;
 };
 
 export type StatusTone = "idle" | "loading" | "success" | "error";
