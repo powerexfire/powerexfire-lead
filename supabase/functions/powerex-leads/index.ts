@@ -124,9 +124,9 @@ async function readQueries() {
   const rows = await readSheetRows(QUERY_GID);
   const { headers, records } = rowsToRecords(rows);
   return records.map((record, index) => ({
-    industry: getField(record, headers, ["industry", "business type", "sector"]),
+    industry: getField(record, headers, ["industry", "industries", "searchindustries", "business type", "sector"]),
     location: getField(record, headers, ["location", "city", "area"]),
-    query: getField(record, headers, ["query", "search query", "keyword"]) || Object.values(record).join(" ").trim(),
+    query: getField(record, headers, ["query", "search query", "keyword"]) || [getField(record, headers, ["industry", "industries", "searchindustries"]), getField(record, headers, ["location", "searchlocation", "city", "area"])].filter(Boolean).join(" in ") || Object.values(record).join(" ").trim(),
     id: `query-${index}`,
   })).filter((query) => query.query || query.industry || query.location);
 }
@@ -134,7 +134,7 @@ async function readQueries() {
 async function readLeads() {
   const rows = await readSheetRows(LEADS_GID);
   const { headers, records } = rowsToRecords(rows);
-  return records.map((record, index) => normalizeLead(record, index, getField(record, headers, ["industry"]), getField(record, headers, ["location", "city", "area"])));
+  return records.map((record, index) => normalizeLead(record, index, getField(record, headers, ["industry", "industries", "searchindustries"]), getField(record, headers, ["location", "searchlocation", "city", "area"])));
 }
 
 async function appendLeads(leads: Lead[]) {
@@ -162,20 +162,20 @@ function normalizeLeads(records: Record<string, unknown>[], industry: string, lo
 
 function normalizeLead(record: Record<string, unknown>, index: number, fallbackIndustry: string, fallbackLocation: string): Lead {
   const normalized = Object.fromEntries(Object.entries(record).map(([key, value]) => [slug(key), String(value ?? "").trim()]));
-  const name = pick(normalized, ["business_name", "name", "company", "company_name", "business"]);
+  const name = pick(normalized, ["business_name", "title", "name", "company", "company_name", "business"]);
   const address = pick(normalized, ["address", "street_address", "full_address"]);
   const location = pick(normalized, ["location", "city", "area"]) || fallbackLocation || address;
   const website = withProtocol(pick(normalized, ["website", "url", "site"]));
   return {
     id: `${name || "lead"}-${index}-${Date.now()}`,
     name,
-    industry: pick(normalized, ["industry", "sector", "business_type"]) || fallbackIndustry,
+    industry: pick(normalized, ["industry", "industries", "searchindustries", "categoryname", "sector", "business_type"]) || fallbackIndustry,
     location,
     address,
     phone: pick(normalized, ["phone", "phone_number", "telephone", "mobile"]),
-    email: pick(normalized, ["email", "email_address"]),
+    email: pick(normalized, ["email", "emails", "email_address"]),
     website,
-    mapsLink: pick(normalized, ["google_maps_link", "maps_link", "map", "google_map"]),
+    mapsLink: pick(normalized, ["google_maps_link", "maps_link", "map", "google_map"]) || mapsSearchLink(name, address),
   };
 }
 
@@ -210,6 +210,11 @@ function quoteSheet(title: string) {
 
 function slug(value: string) {
   return value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+}
+
+function mapsSearchLink(name: string, address: string) {
+  const query = [name, address].filter(Boolean).join(" ");
+  return query ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}` : "";
 }
 
 function withProtocol(value: string) {
