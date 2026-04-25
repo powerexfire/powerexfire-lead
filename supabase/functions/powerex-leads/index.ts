@@ -1,5 +1,9 @@
-import { corsHeaders } from "@supabase/supabase-js/cors";
 import { z } from "npm:zod@3.25.76";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
 
 const GATEWAY_URL = "https://connector-gateway.lovable.dev/google_sheets/v4";
 const SPREADSHEET_ID = "1013CNMc4Ydpr5x4TtNAlvbe3iPER0oFU-ysglfLWIYY";
