@@ -343,4 +343,3 @@ function normalizeIndustry(value: string) {
 }
 
 export default Index;
-TS
