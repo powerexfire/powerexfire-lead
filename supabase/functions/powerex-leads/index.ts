@@ -297,7 +297,7 @@ async function sheetTitleByGid(gid: number) {
 async function readSheetRows(gid: number) {
   const title = await sheetTitleByGid(gid);
   const range = `${quoteSheet(title)}!A1:Z1000`;
-  const data = await gateway(`/spreadsheets/${SPREADSHEET_ID}/values/${encodeURI(range)}`) as { values?: string[][] };
+  const data = await gateway(`/spreadsheets/${SPREADSHEET_ID}/values/${range}`) as { values?: string[][] };
   return data.values ?? [];
 }
 
@@ -327,7 +327,7 @@ async function appendNewLeads(leads: Lead[]) {
   if (fresh.length === 0) return 0;
   const title = await sheetTitleByGid(LEADS_GID);
   const range = `${quoteSheet(title)}!A:O`;
-  await gateway(`/spreadsheets/${SPREADSHEET_ID}/values/${encodeURI(range)}:append?valueInputOption=USER_ENTERED`, {
+  await gateway(`/spreadsheets/${SPREADSHEET_ID}/values/${range}:append?valueInputOption=USER_ENTERED`, {
     method: "POST",
     body: JSON.stringify({ majorDimension: "ROWS", values: fresh.map((lead) => [stableCid(lead), new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }), lead.industry, lead.location, lead.name, "", lead.address ?? "", lead.phone ?? "", lead.website ?? "", lead.email ?? "", "", "", "", "", "FALSE"]) }),
   });
