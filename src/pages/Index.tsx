@@ -141,6 +141,15 @@ function PowerexDashboard({ session }: { session: Session }) {
     }
   };
 
+  const handleSignOut = useCallback(async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Signed out securely.");
+  }, []);
+
   const filteredLeads = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     if (!term) return leads;
@@ -151,7 +160,7 @@ function PowerexDashboard({ session }: { session: Session }) {
     if (!leads.length) return;
     const headers = ["Name", "Industry", "Location", "Address", "Phone", "Email", "Website", "Google Maps Link"];
     const rows = leads.map((lead) => [lead.name, lead.industry, lead.location, lead.address ?? "", lead.phone ?? "", lead.email ?? "", lead.website ?? "", lead.mapsLink ?? ""]);
-    const csv = [headers, ...rows].map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(",")).join("\n");
+    const csv = [headers, ...rows].map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -168,7 +177,7 @@ function PowerexDashboard({ session }: { session: Session }) {
 
   return (
     <div className="industrial-shell min-h-screen">
-      <PowerexNavbar userEmail={session.user.email} />
+      <PowerexNavbar userEmail={session.user.email} onSignOut={handleSignOut} />
 
       <main className="mx-auto grid max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:px-8">
         <section className="overflow-hidden rounded-xl bg-hero-industrial text-secondary-foreground shadow-industrial">
@@ -233,7 +242,7 @@ function PowerexDashboard({ session }: { session: Session }) {
           onCopy={copyValue}
         />
 
-        <SettingsPanel userEmail={session.user.email} activity={activity} onRefreshActivity={loadActivity} isLoading={isLoading} />
+        <SettingsPanel userEmail={session.user.email} userId={session.user.id} activity={activity} onRefreshActivity={loadActivity} onSignOut={handleSignOut} isLoading={isLoading} />
       </main>
     </div>
   );
