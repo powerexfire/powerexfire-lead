@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { ShieldCheck, Zap, Factory } from "lucide-react";
+import { Factory, ShieldCheck, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthGate } from "@/components/powerex/AuthGate";
@@ -10,7 +10,7 @@ import { LeadsTable } from "@/components/powerex/LeadsTable";
 import { StatusPanel } from "@/components/powerex/StatusPanel";
 import { LeadMetrics } from "@/components/powerex/LeadMetrics";
 import { SettingsPanel } from "@/components/powerex/SettingsPanel";
-import type { Lead, LeadActivity, SearchQuery, StatusTone } from "@/components/powerex/types";
+import type { AppRole, AppUser, Lead, LeadActivity, SearchQuery, StatusTone } from "@/components/powerex/types";
 
 const initialStatus = "Ready to generate leads from live sources.";
 const locationPattern = /^[a-zA-Z0-9\s,.'-]{2,120}$/;
@@ -19,6 +19,9 @@ type FunctionResponse = {
   success?: boolean;
   leads?: Lead[];
   queries?: SearchQuery[];
+  users?: AppUser[];
+  currentRole?: AppRole;
+  savedCount?: number;
   error?: string;
 };
 
@@ -34,9 +37,12 @@ function PowerexDashboard({ session }: { session: Session }) {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [queries, setQueries] = useState<SearchQuery[]>([]);
   const [activity, setActivity] = useState<LeadActivity[]>([]);
+  const [users, setUsers] = useState<AppUser[]>([]);
+  const [currentRole, setCurrentRole] = useState<AppRole>("user");
   const [statusTone, setStatusTone] = useState<StatusTone>("idle");
   const [statusMessage, setStatusMessage] = useState(initialStatus);
   const [isLoading, setIsLoading] = useState(false);
+  const [isUserLoading, setIsUserLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const lastActionRef = useRef<(() => void) | null>(null);
   const requestIdRef = useRef(0);
@@ -61,36 +67,54 @@ function PowerexDashboard({ session }: { session: Session }) {
     if (!error && data) setActivity(data as LeadActivity[]);
   }, []);
 
-  useEffect(() => {
-    void loadActivity();
-  }, [loadActivity]);
-
-  const runAction = useCallback(async (body: Record<string, unknown>, loadingMessage: string) => {
-    const requestId = ++requestIdRef.current;
-    setIsLoading(true);
-    setStatusTone("loading");
-    setStatusMessage(loadingMessage);
+  const runAction = useCallback(async (body: Record<string, unknown>, loadingMessage: string, options?: { silent?: boolean }) => {
+    const tracksStatus = !options?.silent;
+    const requestId = tracksStatus ? ++requestIdRef.current : requestIdRef.current;
+    if (tracksStatus) {
+      setIsLoading(true);
+      setStatusTone("loading");
+      setStatusMessage(loadingMessage);
+    }
 
     try {
       const { data, error } = await supabase.functions.invoke<FunctionResponse>("powerex-leads", { body });
-      if (requestId !== requestIdRef.current) return null;
+      if (tracksStatus && requestId !== requestIdRef.current) return null;
 
       if (error || data?.success === false) {
         const message = data?.error || error?.message || "Unable to complete the lead request.";
-        setStatusTone("error");
-        setStatusMessage(message);
+        if (tracksStatus) {
+          setStatusTone("error");
+          setStatusMessage(message);
+        }
         toast.error(message);
         return null;
       }
 
       return data ?? {};
     } finally {
-      if (requestId === requestIdRef.current) {
-        setIsLoading(false);
+      if (!tracksStatus || requestId === requestIdRef.current) {
+        if (tracksStatus) setIsLoading(false);
         void loadActivity();
       }
     }
   }, [loadActivity]);
+
+  const loadUsers = useCallback(async (silent = true) => {
+    setIsUserLoading(true);
+    try {
+      const data = await runAction({ action: "getUsers" }, "Loading user management...", { silent });
+      if (!data) return;
+      setUsers(data.users ?? []);
+      setCurrentRole(data.currentRole ?? "user");
+    } finally {
+      setIsUserLoading(false);
+    }
+  }, [runAction]);
+
+  useEffect(() => {
+    void loadActivity();
+    void loadUsers(true);
+  }, [loadActivity, loadUsers]);
 
   const generateLeads = useCallback(async () => {
     lastActionRef.current = generateLeads;
@@ -102,35 +126,55 @@ function PowerexDashboard({ session }: { session: Session }) {
       return;
     }
 
-    const data = await runAction({ action: "generate", industry, location: cleanLocation }, "Fetching leads...");
+    const data = await runAction({ action: "generate", industry, location: cleanLocation }, "Starting n8n workflow and checking the Data sheet...");
     if (!data) return;
 
     const liveLeads = normalizeClientLeads(data.leads ?? []);
     setLeads(liveLeads);
     setStatusTone("success");
-    setStatusMessage(liveLeads.length ? `Generated and saved ${liveLeads.length} lead${liveLeads.length === 1 ? "" : "s"}.` : "Webhook completed, but no structured leads were returned. Try syncing saved leads.");
+    setStatusMessage(liveLeads.length ? `Generated ${liveLeads.length} matching lead${liveLeads.length === 1 ? "" : "s"}${data.savedCount ? ` and saved ${data.savedCount} new record${data.savedCount === 1 ? "" : "s"}` : ""}.` : "Workflow started successfully. No matching leads are available yet; use Sync leads again in a moment.");
     toast.success("Lead generation completed");
   }, [industry, location, runAction]);
 
   const syncQueries = useCallback(async () => {
     lastActionRef.current = syncQueries;
-    const data = await runAction({ action: "syncQueries" }, "Fetching search queries from Google Sheets...");
+    const data = await runAction({ action: "syncQueries" }, "Fetching search queries from the Query sheet...");
     if (!data) return;
     const sheetQueries = data.queries ?? [];
     setQueries(sheetQueries);
     setStatusTone("success");
-    setStatusMessage(`Synced ${sheetQueries.length} search quer${sheetQueries.length === 1 ? "y" : "ies"}.`);
+    setStatusMessage(`Synced ${sheetQueries.length} search quer${sheetQueries.length === 1 ? "y" : "ies"} from the Query tab.`);
   }, [runAction]);
 
   const syncLeads = useCallback(async () => {
     lastActionRef.current = syncLeads;
-    const data = await runAction({ action: "syncLeads" }, "Fetching leads from Google Sheets...");
+    const data = await runAction({ action: "syncLeads" }, "Fetching leads from the Data sheet...");
     if (!data) return;
     const sheetLeads = normalizeClientLeads(data.leads ?? []);
     setLeads(sheetLeads);
     setStatusTone("success");
-    setStatusMessage(`Synced ${sheetLeads.length} saved lead${sheetLeads.length === 1 ? "" : "s"}.`);
+    setStatusMessage(`Synced ${sheetLeads.length} saved lead${sheetLeads.length === 1 ? "" : "s"} from the Data tab.`);
   }, [runAction]);
+
+  const assignRole = useCallback(async (email: string, role: AppRole) => {
+    setIsUserLoading(true);
+    try {
+      const data = await runAction({ action: "setUserRole", email, role }, `Updating ${email}...`, { silent: true });
+      if (!data) return;
+      setUsers(data.users ?? []);
+      setCurrentRole(data.currentRole ?? currentRole);
+      toast.success(`${email} is now ${role === "admin" ? "an admin" : "a user"}.`);
+    } finally {
+      setIsUserLoading(false);
+    }
+  }, [currentRole, runAction]);
+
+  const applyQuery = useCallback((query: SearchQuery) => {
+    setIndustry(normalizeIndustry(query.industry || industry));
+    setLocation(query.location || location);
+    setStatusTone("idle");
+    setStatusMessage(query.query ? `Loaded query: ${query.query}` : "Search query loaded.");
+  }, [industry, location]);
 
   const copyValue = async (value: string, label: string) => {
     try {
@@ -172,12 +216,14 @@ function PowerexDashboard({ session }: { session: Session }) {
   };
 
   const activeQuery = useMemo(() => {
-    return queries.find((query) => query.industry?.toLowerCase().includes(industry.toLowerCase()) && query.location?.toLowerCase() === location.trim().toLowerCase());
+    const targetIndustry = slug(industry);
+    const targetLocation = slug(location);
+    return queries.find((query) => slug(query.industry).includes(targetIndustry) && slug(query.location) === targetLocation);
   }, [industry, location, queries]);
 
   return (
     <div className="industrial-shell min-h-screen">
-      <PowerexNavbar userEmail={session.user.email} onSignOut={handleSignOut} />
+      <PowerexNavbar userEmail={session.user.email} role={currentRole} onSignOut={handleSignOut} />
 
       <main className="mx-auto grid max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:px-8">
         <section className="overflow-hidden rounded-xl bg-hero-industrial text-secondary-foreground shadow-industrial">
@@ -199,7 +245,7 @@ function PowerexDashboard({ session }: { session: Session }) {
               {[
                 { icon: Factory, label: "Industrial targeting", value: industry },
                 { icon: Zap, label: "Workflow", value: "n8n webhook" },
-                { icon: ShieldCheck, label: "Storage", value: "Google Sheets" },
+                { icon: ShieldCheck, label: "Access", value: currentRole === "admin" ? "Admin" : "User" },
               ].map((item) => (
                 <div key={item.label} className="rounded-xl border border-secondary-foreground/18 bg-secondary-foreground/10 p-4 backdrop-blur-md transition-transform hover:-translate-y-1">
                   <item.icon className="mb-4 h-5 w-5 text-primary" aria-hidden="true" />
@@ -214,11 +260,13 @@ function PowerexDashboard({ session }: { session: Session }) {
         <LeadSearchForm
           industry={industry}
           location={location}
+          queries={queries}
           isLoading={isLoading}
           onIndustryChange={setIndustry}
           onLocationChange={setLocation}
           onSubmit={generateLeads}
           onSyncQueries={syncQueries}
+          onApplyQuery={applyQuery}
         />
 
         <StatusPanel
@@ -242,7 +290,19 @@ function PowerexDashboard({ session }: { session: Session }) {
           onCopy={copyValue}
         />
 
-        <SettingsPanel userEmail={session.user.email} userId={session.user.id} activity={activity} onRefreshActivity={loadActivity} onSignOut={handleSignOut} isLoading={isLoading} />
+        <SettingsPanel
+          userEmail={session.user.email}
+          userId={session.user.id}
+          currentRole={currentRole}
+          users={users}
+          activity={activity}
+          onRefreshActivity={loadActivity}
+          onRefreshUsers={() => loadUsers(false)}
+          onRoleChange={assignRole}
+          onSignOut={handleSignOut}
+          isLoading={isLoading}
+          isUserLoading={isUserLoading}
+        />
       </main>
     </div>
   );
@@ -256,6 +316,31 @@ function normalizeClientLeads(input: Lead[]) {
     seen.add(key);
     return true;
   });
+}
+
+function slug(value = "") {
+  return value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+}
+
+function normalizeIndustry(value: string) {
+  const labels: Record<string, string> = {
+    factories: "Factory",
+    factory: "Factory",
+    warehouses: "Warehouse",
+    warehouse: "Warehouse",
+    hospitals: "Hospital",
+    hospital: "Hospital",
+    hotels: "Hotel",
+    hotel: "Hotel",
+    commercial_buildings: "Commercial Building",
+    commercial_building: "Commercial Building",
+    housing_societies: "Housing Societies",
+    schools: "Schools",
+    colleges: "Colleges",
+    restaurants: "Restaurants",
+    clinics: "Clinics",
+  };
+  return labels[slug(value)] ?? value;
 }
 
 export default Index;
