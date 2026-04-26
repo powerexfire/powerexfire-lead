@@ -68,8 +68,9 @@ function PowerexDashboard({ session }: { session: Session }) {
   }, []);
 
   const runAction = useCallback(async (body: Record<string, unknown>, loadingMessage: string, options?: { silent?: boolean }) => {
-    const requestId = ++requestIdRef.current;
-    if (!options?.silent) {
+    const tracksStatus = !options?.silent;
+    const requestId = tracksStatus ? ++requestIdRef.current : requestIdRef.current;
+    if (tracksStatus) {
       setIsLoading(true);
       setStatusTone("loading");
       setStatusMessage(loadingMessage);
@@ -77,11 +78,11 @@ function PowerexDashboard({ session }: { session: Session }) {
 
     try {
       const { data, error } = await supabase.functions.invoke<FunctionResponse>("powerex-leads", { body });
-      if (requestId !== requestIdRef.current) return null;
+      if (tracksStatus && requestId !== requestIdRef.current) return null;
 
       if (error || data?.success === false) {
         const message = data?.error || error?.message || "Unable to complete the lead request.";
-        if (!options?.silent) {
+        if (tracksStatus) {
           setStatusTone("error");
           setStatusMessage(message);
         }
@@ -91,8 +92,8 @@ function PowerexDashboard({ session }: { session: Session }) {
 
       return data ?? {};
     } finally {
-      if (requestId === requestIdRef.current) {
-        if (!options?.silent) setIsLoading(false);
+      if (!tracksStatus || requestId === requestIdRef.current) {
+        if (tracksStatus) setIsLoading(false);
         void loadActivity();
       }
     }
