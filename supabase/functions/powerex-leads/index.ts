@@ -278,7 +278,7 @@ function pick(record: Record<string, string>, keys: string[]) {
 }
 
 function quoteSheet(title: string) {
-  return `'${title.replaceAll("'", "''")}'`;
+  return `'${title.replace(/'/g, "''")}'`;
 }
 
 function slug(value: string) {
@@ -337,7 +337,17 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function userSafeError(error: unknown) {
   if (error instanceof ResponseError) return error.message;
   if (error instanceof DOMException && error.name === "AbortError") return "The request timed out. Please retry.";
-  return error instanceof Error ? error.message : "Unknown Powerex lead error";
+  if (error instanceof Error) {
+    const message = error.message.toLowerCase();
+    if (message.includes("google sheets") || message.includes("gateway") || message.includes("spreadsheet") || message.includes("sheet")) {
+      return "Google Sheets sync failed. Confirm the connected account can access both Query and Data tabs, then retry.";
+    }
+    if (message.includes("workflow") || message.includes("webhook") || message.includes("n8n")) {
+      return "Lead workflow failed. Confirm the n8n webhook is active, then retry or sync saved leads.";
+    }
+    return error.message;
+  }
+  return "Unknown Powerex lead error";
 }
 
 class ResponseError extends Error {
