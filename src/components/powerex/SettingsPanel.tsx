@@ -1,15 +1,17 @@
-import { Activity, CheckCircle2, Database, ShieldCheck } from "lucide-react";
+import { Activity, CheckCircle2, Database, LogOut, ShieldCheck, UserCog } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { LeadActivity } from "./types";
 
 type SettingsPanelProps = {
   userEmail?: string;
+  userId?: string;
   activity: LeadActivity[];
   onRefreshActivity: () => void;
+  onSignOut: () => void;
   isLoading: boolean;
 };
 
-export function SettingsPanel({ userEmail, activity, onRefreshActivity, isLoading }: SettingsPanelProps) {
+export function SettingsPanel({ userEmail, userId, activity, onRefreshActivity, onSignOut, isLoading }: SettingsPanelProps) {
   return (
     <section id="settings" className="grid gap-4 lg:grid-cols-[0.85fr_1.15fr]">
       <div className="rounded-xl border border-border bg-card p-5 shadow-industrial sm:p-6">
@@ -18,6 +20,7 @@ export function SettingsPanel({ userEmail, activity, onRefreshActivity, isLoadin
         <div className="mt-6 grid gap-3">
           {[
             { icon: ShieldCheck, label: "Access", value: userEmail ?? "Authenticated user" },
+            { icon: UserCog, label: "User management", value: userId ? `Current user: ${userId.slice(0, 8)}…` : "Managed by secure authentication" },
             { icon: Database, label: "Storage", value: "Google Sheets via secure server function" },
             { icon: CheckCircle2, label: "Validation", value: "Client and server-side input checks" },
           ].map((item) => (
@@ -29,6 +32,10 @@ export function SettingsPanel({ userEmail, activity, onRefreshActivity, isLoadin
               </div>
             </div>
           ))}
+          <Button type="button" variant="fire" onClick={onSignOut} className="mt-2 justify-self-start">
+            <LogOut className="h-4 w-4" aria-hidden="true" />
+            Logout
+          </Button>
         </div>
       </div>
 

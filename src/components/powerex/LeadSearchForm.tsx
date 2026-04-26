@@ -2,7 +2,7 @@ import { FormEvent } from "react";
 import { Search, Loader2, RotateCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-const industries = ["Warehouse", "Factory", "Hospital", "Hotel", "Commercial Building"];
+const industries = ["Warehouse", "Factory", "Hospital", "Hotel", "Commercial Building", "Housing Societies", "Schools", "Colleges", "Restaurants", "Clinics"];
 const locationPattern = /^[a-zA-Z0-9\s,.'-]{2,120}$/;
 
 type LeadSearchFormProps = {
