@@ -157,7 +157,7 @@ async function ensureAppUser(auth: AuthContext) {
   const { data: existing, error: roleReadError } = await client.from("user_roles").select("role").eq("user_id", auth.user.id);
   if (roleReadError) throw new Error(`Role lookup failed: ${roleReadError.message}`);
   if (!existing?.length || defaultRole === "admin") {
-    const { error: roleError } = await client.from("user_roles").upsert({ user_id: auth.user.id, role: defaultRole }, { onConflict: "user_id,role" });
+    const { error: roleError } = await client.from("user_roles").upsert({ user_id: auth.user.id, role: defaultRole }, { onConflict: "user_id" });
     if (roleError) throw new Error(`Role sync failed: ${roleError.message}`);
   }
 }
@@ -234,7 +234,7 @@ async function setUserRole(actorUserId: string, email: string, role: AppRole) {
   const deleteRole: AppRole = role === "admin" ? "user" : "admin";
   const { error: deleteError } = await client.from("user_roles").delete().eq("user_id", target.user_id).eq("role", deleteRole);
   if (deleteError) throw new Error(`Role update failed: ${deleteError.message}`);
-  const { error: upsertError } = await client.from("user_roles").upsert({ user_id: target.user_id, role }, { onConflict: "user_id,role" });
+  const { error: upsertError } = await client.from("user_roles").upsert({ user_id: target.user_id, role }, { onConflict: "user_id" });
   if (upsertError) throw new Error(`Role update failed: ${upsertError.message}`);
   return getUserManagement(actorUserId);
 }
@@ -406,7 +406,7 @@ function extractLeadRecords(input: unknown): Record<string, unknown>[] {
 
 async function recordActivity(token: string, userId: string, action: Action, industry: string, location: string, count: number, status: "success" | "error", message: string) {
   const url = Deno.env.get("SUPABASE_URL");
-  const anonKey = Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
+  const anonKey = Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ?? Deno.env.get("SUPABASE_ANON_KEY");
   if (!url || !anonKey) return;
   const client = createClient(url, anonKey, { global: { headers: { Authorization: `Bearer ${token}` } } });
   await client.from("lead_activity").insert({ user_id: userId, action, industry: industry || null, location: location || null, result_count: count, status, message: message.slice(0, 500) });
