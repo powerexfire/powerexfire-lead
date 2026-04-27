@@ -131,9 +131,8 @@ async function authenticate(req: Request): Promise<AuthContext> {
   const token = authHeader.replace("Bearer ", "").trim();
   if (!token) throw new ResponseError("Authentication is required. Please sign in again.", 401);
 
-  const url = Deno.env.get("SUPABASE_URL");
-  const anonKey = Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
-  if (!url || !anonKey) throw new Error("Cloud authentication is not configured");
+  const url = requiredEnv("SUPABASE_URL", "Lovable Cloud URL is not configured");
+  const anonKey = requiredEnv("SUPABASE_PUBLISHABLE_KEY", "SUPABASE_ANON_KEY", "Lovable Cloud authentication key is not configured");
 
   const client = createClient(url, anonKey, { global: { headers: { Authorization: `Bearer ${token}` } } });
   const { data, error } = await client.auth.getUser(token);
@@ -142,9 +141,8 @@ async function authenticate(req: Request): Promise<AuthContext> {
 }
 
 function serviceClient() {
-  const url = Deno.env.get("SUPABASE_URL");
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (!url || !serviceKey) throw new Error("Cloud admin service is not configured");
+  const url = requiredEnv("SUPABASE_URL", "Lovable Cloud URL is not configured");
+  const serviceKey = requiredEnv("SUPABASE_SERVICE_ROLE_KEY", "Lovable Cloud admin service is not configured");
   return createClient(url, serviceKey);
 }
 
@@ -162,6 +160,17 @@ async function ensureAppUser(auth: AuthContext) {
     const { error: roleError } = await client.from("user_roles").upsert({ user_id: auth.user.id, role: defaultRole }, { onConflict: "user_id,role" });
     if (roleError) throw new Error(`Role sync failed: ${roleError.message}`);
   }
+}
+
+function requiredEnv(primaryName: string, fallbackName: string, errorMessage?: string) {
+  const primaryValue = Deno.env.get(primaryName);
+  if (primaryValue) return primaryValue;
+  if (errorMessage) {
+    const fallbackValue = Deno.env.get(fallbackName);
+    if (fallbackValue) return fallbackValue;
+    throw new Error(errorMessage);
+  }
+  throw new Error(fallbackName);
 }
 
 async function isAdmin(userId: string) {
