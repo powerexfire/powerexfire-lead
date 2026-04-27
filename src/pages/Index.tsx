@@ -299,7 +299,6 @@ function PowerexDashboard({ session }: { session: Session }) {
           onRefreshActivity={loadActivity}
           onRefreshUsers={() => loadUsers(false)}
           onRoleChange={assignRole}
-          onSignOut={handleSignOut}
           isLoading={isLoading}
           isUserLoading={isUserLoading}
         />
