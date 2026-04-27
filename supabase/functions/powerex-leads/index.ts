@@ -132,7 +132,7 @@ async function authenticate(req: Request): Promise<AuthContext> {
   if (!token) throw new ResponseError("Authentication is required. Please sign in again.", 401);
 
   const url = requiredEnv("SUPABASE_URL", "Lovable Cloud URL is not configured");
-  const anonKey = requiredEnv("SUPABASE_PUBLISHABLE_KEY", "SUPABASE_ANON_KEY", "Lovable Cloud authentication key is not configured");
+  const anonKey = requiredEnv("SUPABASE_PUBLISHABLE_KEY", "Lovable Cloud authentication key is not configured", "SUPABASE_ANON_KEY");
 
   const client = createClient(url, anonKey, { global: { headers: { Authorization: `Bearer ${token}` } } });
   const { data, error } = await client.auth.getUser(token);
@@ -162,15 +162,14 @@ async function ensureAppUser(auth: AuthContext) {
   }
 }
 
-function requiredEnv(primaryName: string, fallbackName: string, errorMessage?: string) {
+function requiredEnv(primaryName: string, errorMessage: string, fallbackName?: string) {
   const primaryValue = Deno.env.get(primaryName);
   if (primaryValue) return primaryValue;
-  if (errorMessage) {
+  if (fallbackName) {
     const fallbackValue = Deno.env.get(fallbackName);
     if (fallbackValue) return fallbackValue;
-    throw new Error(errorMessage);
   }
-  throw new Error(fallbackName);
+  throw new Error(errorMessage);
 }
 
 async function isAdmin(userId: string) {
