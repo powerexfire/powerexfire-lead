@@ -1,6 +1,6 @@
 import { FormEvent, ReactNode, useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { Flame, Loader2, LockKeyhole, LogOut, Mail, ShieldCheck } from "lucide-react";
+import { Flame, Loader2, LockKeyhole, Mail, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -69,22 +69,7 @@ export function AuthGate({ children }: AuthGateProps) {
   }
 
   if (session) {
-    return (
-      <>
-        {children(session)}
-        <Button
-          type="button"
-          variant="table"
-          size="sm"
-          onClick={() => supabase.auth.signOut()}
-          className="fixed bottom-4 right-4 z-40 shadow-industrial"
-          aria-label="Sign out of Powerex Fire"
-        >
-          <LogOut className="h-4 w-4" aria-hidden="true" />
-          Sign out
-        </Button>
-      </>
-    );
+    return <>{children(session)}</>;
   }
 
   return (

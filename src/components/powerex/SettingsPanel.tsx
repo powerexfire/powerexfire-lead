@@ -1,4 +1,4 @@
-import { Activity, CheckCircle2, Crown, Database, Loader2, LogOut, ShieldCheck, UserCog } from "lucide-react";
+import { Activity, CheckCircle2, Crown, Database, Loader2, ShieldCheck, UserCog } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { AppRole, AppUser, LeadActivity } from "./types";
 
@@ -11,7 +11,6 @@ type SettingsPanelProps = {
   onRefreshActivity: () => void;
   onRefreshUsers: () => void;
   onRoleChange: (email: string, role: AppRole) => void;
-  onSignOut: () => void;
   isLoading: boolean;
   isUserLoading: boolean;
 };
@@ -25,7 +24,6 @@ export function SettingsPanel({
   onRefreshActivity,
   onRefreshUsers,
   onRoleChange,
-  onSignOut,
   isLoading,
   isUserLoading,
 }: SettingsPanelProps) {
@@ -53,10 +51,6 @@ export function SettingsPanel({
                 </div>
               </div>
             ))}
-            <Button type="button" variant="fire" onClick={onSignOut} className="mt-2 justify-self-start">
-              <LogOut className="h-4 w-4" aria-hidden="true" />
-              Logout
-            </Button>
           </div>
         </div>
 
