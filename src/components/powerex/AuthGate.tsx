@@ -3,6 +3,7 @@ import type { Session } from "@supabase/supabase-js";
 import { Flame, Loader2, LockKeyhole, Mail, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable";
 import { Button } from "@/components/ui/button";
 
 type AuthGateProps = {
@@ -14,17 +15,17 @@ export function AuthGate({ children }: AuthGateProps) {
   const [isChecking, setIsChecking] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [mode, setMode] = useState<"signIn" | "signUp">("signIn");
+  const [mode, setMode] = useState<"signIn" | "signUp" | "reset">("signIn");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
       setIsChecking(false);
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      setSession(nextSession);
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
       setIsChecking(false);
     });
 
@@ -38,6 +39,17 @@ export function AuthGate({ children }: AuthGateProps) {
       toast.error("Enter a valid business email.");
       return;
     }
+    if (mode === "reset") {
+      setIsSubmitting(true);
+      const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      setIsSubmitting(false);
+      if (error) toast.error(error.message);
+      else toast.success("Password reset link sent. Check your email.");
+      return;
+    }
+
     if (password.length < 8) {
       toast.error("Password must be at least 8 characters.");
       return;
@@ -46,7 +58,7 @@ export function AuthGate({ children }: AuthGateProps) {
     setIsSubmitting(true);
     const result = mode === "signIn"
       ? await supabase.auth.signInWithPassword({ email: cleanEmail, password })
-      : await supabase.auth.signUp({ email: cleanEmail, password });
+      : await supabase.auth.signUp({ email: cleanEmail, password, options: { emailRedirectTo: window.location.origin } });
     setIsSubmitting(false);
 
     if (result.error) {
@@ -55,6 +67,13 @@ export function AuthGate({ children }: AuthGateProps) {
     }
 
     toast.success(mode === "signIn" ? "Signed in securely." : "Account created. Check your email if confirmation is required.");
+  };
+
+  const handleGoogleSignIn = async () => {
+    setIsSubmitting(true);
+    const result = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin });
+    setIsSubmitting(false);
+    if (result.error) toast.error(result.error.message);
   };
 
   if (isChecking) {
@@ -92,7 +111,7 @@ export function AuthGate({ children }: AuthGateProps) {
         <form onSubmit={handleSubmit} className="grid gap-5 p-6 sm:p-10" aria-label="Powerex Fire sign in form">
           <div>
             <p className="text-sm font-black uppercase tracking-[0.24em] text-primary">Secure Access</p>
-            <h2 className="mt-2 text-3xl font-black text-card-foreground">{mode === "signIn" ? "Sign in" : "Create account"}</h2>
+            <h2 className="mt-2 text-3xl font-black text-card-foreground">{mode === "signIn" ? "Sign in" : mode === "signUp" ? "Create account" : "Reset password"}</h2>
           </div>
 
           <label className="grid gap-2 text-sm font-bold text-card-foreground">
@@ -110,27 +129,41 @@ export function AuthGate({ children }: AuthGateProps) {
             </div>
           </label>
 
-          <label className="grid gap-2 text-sm font-bold text-card-foreground">
-            Password
-            <input
-              type="password"
-              autoComplete={mode === "signIn" ? "current-password" : "new-password"}
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              minLength={8}
-              className="h-12 rounded-lg border border-input bg-background px-4 text-base font-semibold text-foreground outline-none transition-shadow focus:ring-2 focus:ring-ring"
-              required
-            />
-          </label>
+          {mode !== "reset" ? (
+            <label className="grid gap-2 text-sm font-bold text-card-foreground">
+              Password
+              <input
+                type="password"
+                autoComplete={mode === "signIn" ? "current-password" : "new-password"}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                minLength={8}
+                className="h-12 rounded-lg border border-input bg-background px-4 text-base font-semibold text-foreground outline-none transition-shadow focus:ring-2 focus:ring-ring"
+                required
+              />
+            </label>
+          ) : null}
 
           <Button type="submit" variant="fire" size="xl" disabled={isSubmitting}>
             {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> : <LockKeyhole className="h-5 w-5" aria-hidden="true" />}
-            {mode === "signIn" ? "Sign in" : "Create secure account"}
+            {mode === "signIn" ? "Sign in" : mode === "signUp" ? "Create secure account" : "Send reset link"}
           </Button>
+
+          {mode !== "reset" ? (
+            <Button type="button" variant="steel" onClick={handleGoogleSignIn} disabled={isSubmitting}>
+              <ShieldCheck className="h-5 w-5" aria-hidden="true" />
+              Continue with Google
+            </Button>
+          ) : null}
 
           <Button type="button" variant="ghost" onClick={() => setMode(mode === "signIn" ? "signUp" : "signIn")}> 
             {mode === "signIn" ? "Need access? Create an account" : "Already have access? Sign in"}
           </Button>
+          {mode !== "signUp" ? (
+            <Button type="button" variant="ghost" onClick={() => setMode(mode === "reset" ? "signIn" : "reset")}> 
+              {mode === "reset" ? "Back to sign in" : "Forgot password?"}
+            </Button>
+          ) : null}
         </form>
       </section>
     </main>
