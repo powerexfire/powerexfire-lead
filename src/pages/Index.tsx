@@ -10,7 +10,10 @@ import { LeadsTable } from "@/components/powerex/LeadsTable";
 import { StatusPanel } from "@/components/powerex/StatusPanel";
 import { LeadMetrics } from "@/components/powerex/LeadMetrics";
 import { SettingsPanel } from "@/components/powerex/SettingsPanel";
+import { LeadDetailsDialog } from "@/components/powerex/LeadDetailsDialog";
 import type { AppRole, AppUser, Lead, LeadActivity, SearchQuery, StatusTone } from "@/components/powerex/types";
+import type { LeadStatus } from "@/components/powerex/types";
+import { dedupeLeads, makeLeadDedupeKey } from "@/lib/lead-pipeline";
 
 const initialStatus = "Ready to generate leads from live sources.";
 const locationPattern = /^[a-zA-Z0-9\s,.'-]{2,120}$/;
@@ -44,6 +47,9 @@ function PowerexDashboard({ session }: { session: Session }) {
   const [isLoading, setIsLoading] = useState(false);
   const [isUserLoading, setIsUserLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [isSavingLead, setIsSavingLead] = useState(false);
   const lastActionRef = useRef<(() => void) | null>(null);
   const requestIdRef = useRef(0);
 
@@ -66,6 +72,87 @@ function PowerexDashboard({ session }: { session: Session }) {
 
     if (!error && data) setActivity(data as LeadActivity[]);
   }, []);
+
+  const loadStoredLeads = useCallback(async () => {
+    const pageSize = 1000;
+    const allRows: Array<{
+      id: string;
+      name: string;
+      industry: string;
+      location: string;
+      address: string | null;
+      phone: string | null;
+      email: string | null;
+      website: string | null;
+      maps_link: string | null;
+      status: string;
+      notes: string;
+      follow_up_date: string | null;
+    }> = [];
+
+    for (let offset = 0; ; offset += pageSize) {
+      const { data, error } = await supabase
+        .from("sales_leads")
+        .select("id,name,industry,location,address,phone,email,website,maps_link,status,notes,follow_up_date")
+        .order("created_at", { ascending: false })
+        .range(offset, offset + pageSize - 1);
+
+      if (error) {
+        toast.error(`Saved lead history could not be loaded: ${error.message}`);
+        return false;
+      }
+
+      allRows.push(...(data ?? []));
+      if (!data || data.length < pageSize) break;
+    }
+
+    setLeads(allRows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      industry: row.industry,
+      location: row.location,
+      address: row.address ?? undefined,
+      phone: row.phone ?? undefined,
+      email: row.email ?? undefined,
+      website: row.website ?? undefined,
+      mapsLink: row.maps_link ?? undefined,
+      status: normalizeLeadStatus(row.status),
+      notes: row.notes,
+      followUpDate: row.follow_up_date ?? undefined,
+    })));
+    return true;
+  }, []);
+
+  const persistLeadRecords = useCallback(async (input: Lead[]) => {
+    const uniqueLeads = dedupeLeads(input);
+    if (!uniqueLeads.length) {
+      await loadStoredLeads();
+      return { savedCount: 0, duplicateCount: input.length };
+    }
+
+    const rows = uniqueLeads.map((lead) => ({
+      dedupe_key: makeLeadDedupeKey(lead),
+      user_id: session.user.id,
+      name: lead.name.trim().slice(0, 255),
+      industry: lead.industry.trim().slice(0, 80),
+      location: lead.location.trim().slice(0, 120),
+      address: lead.address?.trim().slice(0, 500) || null,
+      phone: lead.phone?.trim().slice(0, 80) || null,
+      email: lead.email?.trim().slice(0, 255) || null,
+      website: lead.website?.trim().slice(0, 500) || null,
+      maps_link: lead.mapsLink?.trim().slice(0, 1000) || null,
+    }));
+
+    const { data, error } = await supabase
+      .from("sales_leads")
+      .upsert(rows, { onConflict: "dedupe_key", ignoreDuplicates: true })
+      .select("id");
+
+    if (error) throw new Error(`Lead history could not be saved: ${error.message}`);
+    if (!(await loadStoredLeads())) throw new Error("Leads were saved, but the updated history could not be reloaded.");
+    const savedCount = data?.length ?? 0;
+    return { savedCount, duplicateCount: Math.max(0, input.length - savedCount) };
+  }, [loadStoredLeads, session.user.id]);
 
   const runAction = useCallback(async (body: Record<string, unknown>, loadingMessage: string, options?: { silent?: boolean }) => {
     const tracksStatus = !options?.silent;
@@ -114,7 +201,8 @@ function PowerexDashboard({ session }: { session: Session }) {
   useEffect(() => {
     void loadActivity();
     void loadUsers(true);
-  }, [loadActivity, loadUsers]);
+    void loadStoredLeads();
+  }, [loadActivity, loadStoredLeads, loadUsers]);
 
   const generateLeads = useCallback(async () => {
     lastActionRef.current = generateLeads;
@@ -129,12 +217,21 @@ function PowerexDashboard({ session }: { session: Session }) {
     const data = await runAction({ action: "generate", industry, location: cleanLocation }, "Starting n8n workflow and checking the Data sheet...");
     if (!data) return;
 
-    const liveLeads = normalizeClientLeads(data.leads ?? []);
-    setLeads(liveLeads);
+    const liveLeads = dedupeLeads(data.leads ?? []);
+    let persistence = { savedCount: 0, duplicateCount: 0 };
+    try {
+      persistence = await persistLeadRecords(liveLeads);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Lead history could not be saved.";
+      setStatusTone("error");
+      setStatusMessage(message);
+      toast.error(message);
+      return;
+    }
     setStatusTone("success");
-    setStatusMessage(liveLeads.length ? `Generated ${liveLeads.length} matching lead${liveLeads.length === 1 ? "" : "s"}${data.savedCount ? ` and saved ${data.savedCount} new record${data.savedCount === 1 ? "" : "s"}` : ""}.` : "Workflow started successfully. No matching leads are available yet; use Sync leads again in a moment.");
-    toast.success("Lead generation completed");
-  }, [industry, location, runAction]);
+    setStatusMessage(liveLeads.length ? `Found ${liveLeads.length} lead${liveLeads.length === 1 ? "" : "s"}; ${persistence.savedCount} added to history${persistence.duplicateCount ? `, ${persistence.duplicateCount} duplicate${persistence.duplicateCount === 1 ? "" : "s"} skipped` : ""}.` : "Workflow started successfully. No matching leads are available yet; use Sync leads again in a moment.");
+    toast.success("Lead generation completed and history updated");
+  }, [industry, location, persistLeadRecords, runAction]);
 
   const syncQueries = useCallback(async () => {
     lastActionRef.current = syncQueries;
@@ -150,11 +247,45 @@ function PowerexDashboard({ session }: { session: Session }) {
     lastActionRef.current = syncLeads;
     const data = await runAction({ action: "syncLeads" }, "Fetching leads from the Data sheet...");
     if (!data) return;
-    const sheetLeads = normalizeClientLeads(data.leads ?? []);
-    setLeads(sheetLeads);
+    const sheetLeads = dedupeLeads(data.leads ?? []);
+    let persistence = { savedCount: 0, duplicateCount: 0 };
+    try {
+      persistence = await persistLeadRecords(sheetLeads);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Lead history could not be updated.";
+      setStatusTone("error");
+      setStatusMessage(message);
+      toast.error(message);
+      return;
+    }
     setStatusTone("success");
-    setStatusMessage(`Synced ${sheetLeads.length} saved lead${sheetLeads.length === 1 ? "" : "s"} from the Data tab.`);
-  }, [runAction]);
+    setStatusMessage(`Checked ${sheetLeads.length} sheet lead${sheetLeads.length === 1 ? "" : "s"}; ${persistence.savedCount} new record${persistence.savedCount === 1 ? "" : "s"} added to history${persistence.duplicateCount ? `, ${persistence.duplicateCount} duplicate${persistence.duplicateCount === 1 ? "" : "s"} skipped` : ""}.`);
+  }, [persistLeadRecords, runAction]);
+
+  const saveLeadDetails = useCallback(async (lead: Lead, changes: { status: LeadStatus; notes: string; followUpDate: string | null }) => {
+    setIsSavingLead(true);
+    const { error } = await supabase.from("sales_leads").update({
+      status: changes.status,
+      notes: changes.notes,
+      follow_up_date: changes.followUpDate,
+    }).eq("id", lead.id);
+
+    if (error) {
+      const message = `Lead follow-up could not be saved: ${error.message}`;
+      setStatusTone("error");
+      setStatusMessage(message);
+      toast.error(message);
+      setIsSavingLead(false);
+      return;
+    }
+
+    setLeads((current) => current.map((item) => item.id === lead.id ? { ...item, ...changes } : item));
+    setSelectedLead(null);
+    setStatusTone("success");
+    setStatusMessage(`Follow-up details saved for ${lead.name}.`);
+    toast.success("Follow-up details saved");
+    setIsSavingLead(false);
+  }, []);
 
   const assignRole = useCallback(async (email: string, role: AppRole) => {
     setIsUserLoading(true);
@@ -197,8 +328,11 @@ function PowerexDashboard({ session }: { session: Session }) {
   const filteredLeads = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     if (!term) return leads;
-    return leads.filter((lead) => [lead.name, lead.industry, lead.location, lead.phone, lead.email, lead.website].some((value) => value?.toLowerCase().includes(term)));
-  }, [leads, searchTerm]);
+    return leads.filter((lead) => {
+      const matchesSearch = [lead.name, lead.industry, lead.location, lead.phone, lead.email, lead.website, lead.notes].some((value) => value?.toLowerCase().includes(term));
+      return matchesSearch && (statusFilter === "all" || (lead.status ?? "new") === statusFilter);
+    });
+  }, [leads, searchTerm, statusFilter]);
 
   const exportCsv = () => {
     if (!leads.length) return;
@@ -288,6 +422,17 @@ function PowerexDashboard({ session }: { session: Session }) {
           onSyncLeads={syncLeads}
           onExport={exportCsv}
           onCopy={copyValue}
+          statusFilter={statusFilter}
+          onStatusFilterChange={setStatusFilter}
+          onEditLead={setSelectedLead}
+        />
+
+        <LeadDetailsDialog
+          lead={selectedLead}
+          open={Boolean(selectedLead)}
+          isSaving={isSavingLead}
+          onOpenChange={(open) => { if (!open) setSelectedLead(null); }}
+          onSave={saveLeadDetails}
         />
 
         <SettingsPanel
@@ -307,18 +452,12 @@ function PowerexDashboard({ session }: { session: Session }) {
   );
 }
 
-function normalizeClientLeads(input: Lead[]) {
-  const seen = new Set<string>();
-  return input.filter((lead) => {
-    const key = [lead.name, lead.phone, lead.website].join("|").toLowerCase();
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
-
 function slug(value = "") {
   return value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+}
+
+function normalizeLeadStatus(value?: string): LeadStatus {
+  return value === "contacted" || value === "qualified" || value === "won" || value === "lost" ? value : "new";
 }
 
 function normalizeIndustry(value: string) {

@@ -1,3 +1,5 @@
+export type LeadStatus = "new" | "contacted" | "qualified" | "won" | "lost";
+
 export type Lead = {
   id: string;
   name: string;
@@ -8,6 +10,9 @@ export type Lead = {
   email?: string;
   website?: string;
   mapsLink?: string;
+  status?: LeadStatus;
+  notes?: string;
+  followUpDate?: string;
 };
 
 export type SearchQuery = {

@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.15"
   }
   public: {
     Tables: {
@@ -68,6 +68,63 @@ export type Database = {
           result_count?: number
           status?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      sales_leads: {
+        Row: {
+          address: string | null
+          created_at: string
+          dedupe_key: string
+          email: string | null
+          follow_up_date: string | null
+          id: string
+          industry: string
+          location: string
+          maps_link: string | null
+          name: string
+          notes: string
+          phone: string | null
+          status: string
+          updated_at: string
+          user_id: string
+          website: string | null
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          dedupe_key: string
+          email?: string | null
+          follow_up_date?: string | null
+          id?: string
+          industry?: string
+          location?: string
+          maps_link?: string | null
+          name: string
+          notes?: string
+          phone?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          website?: string | null
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          dedupe_key?: string
+          email?: string | null
+          follow_up_date?: string | null
+          id?: string
+          industry?: string
+          location?: string
+          maps_link?: string | null
+          name?: string
+          notes?: string
+          phone?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          website?: string | null
         }
         Relationships: []
       }

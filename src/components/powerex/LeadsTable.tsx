@@ -1,6 +1,8 @@
-import { Copy, Download, ExternalLink, RefreshCcw, SearchX } from "lucide-react";
+import { Copy, Download, ExternalLink, Pencil, RefreshCcw, SearchX } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { Lead } from "./types";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { isSafeExternalUrl } from "@/lib/lead-pipeline";
+import type { Lead, LeadStatus } from "./types";
 
 type LeadsTableProps = {
   leads: Lead[];
@@ -11,6 +13,9 @@ type LeadsTableProps = {
   onSyncLeads: () => void;
   onExport: () => void;
   onCopy: (value: string, label: string) => void;
+  statusFilter: string;
+  onStatusFilterChange: (value: string) => void;
+  onEditLead: (lead: Lead) => void;
 };
 
 const display = (value?: string) => {
@@ -19,7 +24,7 @@ const display = (value?: string) => {
   return clean;
 };
 
-export function LeadsTable({ leads, totalLeads, isLoading, searchTerm, onSearchTermChange, onSyncLeads, onExport, onCopy }: LeadsTableProps) {
+export function LeadsTable({ leads, totalLeads, isLoading, searchTerm, onSearchTermChange, onSyncLeads, onExport, onCopy, statusFilter, onStatusFilterChange, onEditLead }: LeadsTableProps) {
   return (
     <section id="leads" className="rounded-xl border border-border bg-card shadow-industrial">
       <div className="flex flex-col gap-4 border-b border-border p-5 sm:p-6 xl:flex-row xl:items-center xl:justify-between">
@@ -27,7 +32,7 @@ export function LeadsTable({ leads, totalLeads, isLoading, searchTerm, onSearchT
           <p className="text-sm font-black uppercase tracking-[0.24em] text-primary">Leads Table</p>
           <h2 className="mt-2 text-2xl font-black text-card-foreground">Saved prospects</h2>
         </div>
-        <div className="grid gap-3 sm:grid-cols-[minmax(220px,1fr)_auto_auto]">
+        <div className="grid gap-3 sm:grid-cols-[minmax(220px,1fr)_160px_auto_auto]">
           <label className="sr-only" htmlFor="lead-search">Filter leads</label>
           <input
             id="lead-search"
@@ -36,6 +41,15 @@ export function LeadsTable({ leads, totalLeads, isLoading, searchTerm, onSearchT
             placeholder="Filter name, phone, email..."
             className="h-10 rounded-lg border border-input bg-background px-4 text-sm font-semibold text-foreground outline-none transition-shadow placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
           />
+          <Select value={statusFilter} onValueChange={onStatusFilterChange}>
+            <SelectTrigger aria-label="Filter leads by pipeline status"><SelectValue placeholder="All statuses" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              {(["new", "contacted", "qualified", "won", "lost"] as LeadStatus[]).map((status) => (
+                <SelectItem key={status} value={status}>{status.charAt(0).toUpperCase() + status.slice(1)}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button type="button" variant="steel" onClick={onExport} disabled={totalLeads === 0}>
             <Download className="h-4 w-4" aria-hidden="true" />
             Export CSV
@@ -67,11 +81,11 @@ export function LeadsTable({ leads, totalLeads, isLoading, searchTerm, onSearchT
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[980px] border-collapse text-left">
+          <table className="w-full min-w-[1220px] border-collapse text-left">
             <caption className="sr-only">Powerex Fire saved business leads</caption>
             <thead className="bg-muted/70 text-xs uppercase tracking-[0.16em] text-muted-foreground">
               <tr>
-                {['Name', 'Industry', 'Location', 'Phone', 'Email', 'Website', 'Maps'].map((header) => (
+                {['Name', 'Industry', 'Location', 'Status', 'Follow-up', 'Notes', 'Phone', 'Email', 'Website', 'Maps', 'Edit'].map((header) => (
                   <th key={header} scope="col" className="px-5 py-4 font-black">
                     {header}
                   </th>
@@ -84,6 +98,9 @@ export function LeadsTable({ leads, totalLeads, isLoading, searchTerm, onSearchT
                   <th scope="row" className="px-5 py-4 font-black text-foreground">{display(lead.name)}</th>
                   <td className="px-5 py-4 font-semibold text-muted-foreground">{display(lead.industry)}</td>
                   <td className="max-w-[260px] px-5 py-4 font-semibold text-muted-foreground">{display(lead.location || lead.address)}</td>
+                  <td className="px-5 py-4"><LeadStatusBadge status={lead.status ?? "new"} /></td>
+                  <td className="px-5 py-4 font-semibold text-muted-foreground">{lead.followUpDate ? new Date(`${lead.followUpDate}T00:00:00`).toLocaleDateString() : "—"}</td>
+                  <td className="max-w-[220px] truncate px-5 py-4 text-sm text-muted-foreground" title={lead.notes || undefined}>{display(lead.notes)}</td>
                   <td className="px-5 py-4">
                     <Copyable value={display(lead.phone)} label="phone" onCopy={onCopy} />
                   </td>
@@ -91,7 +108,7 @@ export function LeadsTable({ leads, totalLeads, isLoading, searchTerm, onSearchT
                     <Copyable value={display(lead.email)} label="email" onCopy={onCopy} />
                   </td>
                   <td className="px-5 py-4">
-                    {display(lead.website) !== "—" ? (
+                    {display(lead.website) !== "—" && isSafeExternalUrl(lead.website) ? (
                       <a className="font-bold text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href={lead.website} target="_blank" rel="noreferrer">
                         Website
                       </a>
@@ -100,7 +117,7 @@ export function LeadsTable({ leads, totalLeads, isLoading, searchTerm, onSearchT
                     )}
                   </td>
                   <td className="px-5 py-4">
-                    {lead.mapsLink ? (
+                    {isSafeExternalUrl(lead.mapsLink) ? (
                       <Button asChild variant="table" size="sm">
                         <a href={lead.mapsLink} target="_blank" rel="noreferrer">
                           <ExternalLink className="h-4 w-4" aria-hidden="true" />
@@ -111,6 +128,11 @@ export function LeadsTable({ leads, totalLeads, isLoading, searchTerm, onSearchT
                       <span className="text-muted-foreground">—</span>
                     )}
                   </td>
+                  <td className="px-5 py-4">
+                    <Button type="button" variant="table" size="iconSm" aria-label={`Edit follow-up for ${lead.name}`} onClick={() => onEditLead(lead)}>
+                      <Pencil className="h-4 w-4" aria-hidden="true" />
+                    </Button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -119,6 +141,15 @@ export function LeadsTable({ leads, totalLeads, isLoading, searchTerm, onSearchT
       )}
     </section>
   );
+}
+
+function LeadStatusBadge({ status }: { status: LeadStatus }) {
+  const variant = status === "won" ? "default" : status === "lost" ? "destructive" : status === "qualified" ? "secondary" : "outline";
+  return <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-bold capitalize ${
+    variant === "default" ? "border-transparent bg-success text-success-foreground" :
+      variant === "destructive" ? "border-transparent bg-destructive text-destructive-foreground" :
+        variant === "secondary" ? "border-transparent bg-accent text-accent-foreground" : "border-border bg-muted text-muted-foreground"
+  }`}>{status}</span>;
 }
 
 function Copyable({ value, label, onCopy }: { value?: string; label: string; onCopy: (value: string, label: string) => void }) {
