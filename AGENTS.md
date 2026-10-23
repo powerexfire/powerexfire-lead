@@ -1,0 +1,1 @@
+- Keep durable lead records and sales follow-up state in the authenticated shared database pipeline, while Google Sheets remains an integration source and export surface, so team follow-up survives syncs and sessions.

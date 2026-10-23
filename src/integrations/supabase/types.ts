@@ -71,6 +71,63 @@ export type Database = {
         }
         Relationships: []
       }
+      sales_leads: {
+        Row: {
+          address: string | null
+          created_at: string
+          dedupe_key: string
+          email: string | null
+          follow_up_date: string | null
+          id: string
+          industry: string
+          location: string
+          maps_link: string | null
+          name: string
+          notes: string
+          phone: string | null
+          status: string
+          updated_at: string
+          user_id: string
+          website: string | null
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          dedupe_key: string
+          email?: string | null
+          follow_up_date?: string | null
+          id?: string
+          industry?: string
+          location?: string
+          maps_link?: string | null
+          name: string
+          notes?: string
+          phone?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          website?: string | null
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          dedupe_key?: string
+          email?: string | null
+          follow_up_date?: string | null
+          id?: string
+          industry?: string
+          location?: string
+          maps_link?: string | null
+          name?: string
+          notes?: string
+          phone?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
