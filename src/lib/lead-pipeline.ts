@@ -7,15 +7,15 @@ function clean(value?: string | null) {
 }
 
 export function makeLeadDedupeKey(lead: Pick<Lead, "name" | "location" | "phone" | "website">) {
-  const phone = (lead.phone ?? "").replace(/\D/g, "");
-  if (phone.length >= 7) return `phone:${phone}`;
-
   const name = clean(lead.name);
   const website = clean(lead.website)
     .replace(/^https?:\/\//, "")
     .replace(/^www\./, "")
     .split(/[/?#]/, 1)[0];
   if (website) return `website:${website}|name:${name}`;
+
+  const phone = (lead.phone ?? "").replace(/\D/g, "");
+  if (phone.length >= 7) return `phone:${phone}|name:${name}`;
 
   return `name:${name}|location:${clean(lead.location)}`;
 }
