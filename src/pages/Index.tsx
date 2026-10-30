@@ -95,6 +95,7 @@ function PowerexDashboard({ session }: { session: Session }) {
         .from("sales_leads")
         .select("id,name,industry,location,address,phone,email,website,maps_link,status,notes,follow_up_date")
         .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
         .range(offset, offset + pageSize - 1);
 
       if (error) {
@@ -124,34 +125,39 @@ function PowerexDashboard({ session }: { session: Session }) {
   }, []);
 
   const persistLeadRecords = useCallback(async (input: Lead[]) => {
-    const uniqueLeads = dedupeLeads(input);
-    if (!uniqueLeads.length) {
-      await loadStoredLeads();
-      return { savedCount: 0, duplicateCount: input.length };
+    setIsSavingLead(true);
+    try {
+      const uniqueLeads = dedupeLeads(input);
+      if (!uniqueLeads.length) {
+        await loadStoredLeads();
+        return { savedCount: 0, duplicateCount: input.length };
+      }
+
+      const rows = uniqueLeads.map((lead) => ({
+        dedupe_key: makeLeadDedupeKey(lead),
+        user_id: session.user.id,
+        name: lead.name.trim().slice(0, 255),
+        industry: lead.industry.trim().slice(0, 80),
+        location: lead.location.trim().slice(0, 120),
+        address: lead.address?.trim().slice(0, 500) || null,
+        phone: lead.phone?.trim().slice(0, 80) || null,
+        email: lead.email?.trim().slice(0, 255) || null,
+        website: lead.website?.trim().slice(0, 500) || null,
+        maps_link: lead.mapsLink?.trim().slice(0, 1000) || null,
+      }));
+
+      const { data, error } = await supabase
+        .from("sales_leads")
+        .upsert(rows, { onConflict: "dedupe_key", ignoreDuplicates: true })
+        .select("id");
+
+      if (error) throw new Error(`Lead history could not be saved: ${error.message}`);
+      if (!(await loadStoredLeads())) throw new Error("Leads were saved, but the updated history could not be reloaded.");
+      const savedCount = data?.length ?? 0;
+      return { savedCount, duplicateCount: Math.max(0, input.length - savedCount) };
+    } finally {
+      setIsSavingLead(false);
     }
-
-    const rows = uniqueLeads.map((lead) => ({
-      dedupe_key: makeLeadDedupeKey(lead),
-      user_id: session.user.id,
-      name: lead.name.trim().slice(0, 255),
-      industry: lead.industry.trim().slice(0, 80),
-      location: lead.location.trim().slice(0, 120),
-      address: lead.address?.trim().slice(0, 500) || null,
-      phone: lead.phone?.trim().slice(0, 80) || null,
-      email: lead.email?.trim().slice(0, 255) || null,
-      website: lead.website?.trim().slice(0, 500) || null,
-      maps_link: lead.mapsLink?.trim().slice(0, 1000) || null,
-    }));
-
-    const { data, error } = await supabase
-      .from("sales_leads")
-      .upsert(rows, { onConflict: "dedupe_key", ignoreDuplicates: true })
-      .select("id");
-
-    if (error) throw new Error(`Lead history could not be saved: ${error.message}`);
-    if (!(await loadStoredLeads())) throw new Error("Leads were saved, but the updated history could not be reloaded.");
-    const savedCount = data?.length ?? 0;
-    return { savedCount, duplicateCount: Math.max(0, input.length - savedCount) };
   }, [loadStoredLeads, session.user.id]);
 
   const runAction = useCallback(async (body: Record<string, unknown>, loadingMessage: string, options?: { silent?: boolean }) => {
@@ -264,27 +270,28 @@ function PowerexDashboard({ session }: { session: Session }) {
 
   const saveLeadDetails = useCallback(async (lead: Lead, changes: { status: LeadStatus; notes: string; followUpDate: string | null }) => {
     setIsSavingLead(true);
-    const { error } = await supabase.from("sales_leads").update({
-      status: changes.status,
-      notes: changes.notes,
-      follow_up_date: changes.followUpDate,
-    }).eq("id", lead.id);
+    try {
+      const { error } = await supabase.from("sales_leads").update({
+        status: changes.status,
+        notes: changes.notes,
+        follow_up_date: changes.followUpDate,
+      }).eq("id", lead.id);
 
-    if (error) {
-      const message = `Lead follow-up could not be saved: ${error.message}`;
+      if (error) throw error;
+
+      setLeads((current) => current.map((item) => item.id === lead.id ? { ...item, ...changes } : item));
+      setSelectedLead(null);
+      setStatusTone("success");
+      setStatusMessage(`Follow-up details saved for ${lead.name}.`);
+      toast.success("Follow-up details saved");
+    } catch (error) {
+      const message = `Lead follow-up could not be saved: ${error instanceof Error ? error.message : "Please retry."}`;
       setStatusTone("error");
       setStatusMessage(message);
       toast.error(message);
+    } finally {
       setIsSavingLead(false);
-      return;
     }
-
-    setLeads((current) => current.map((item) => item.id === lead.id ? { ...item, ...changes } : item));
-    setSelectedLead(null);
-    setStatusTone("success");
-    setStatusMessage(`Follow-up details saved for ${lead.name}.`);
-    toast.success("Follow-up details saved");
-    setIsSavingLead(false);
   }, []);
 
   const assignRole = useCallback(async (email: string, role: AppRole) => {
@@ -327,17 +334,16 @@ function PowerexDashboard({ session }: { session: Session }) {
 
   const filteredLeads = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
-    if (!term) return leads;
     return leads.filter((lead) => {
-      const matchesSearch = [lead.name, lead.industry, lead.location, lead.phone, lead.email, lead.website, lead.notes].some((value) => value?.toLowerCase().includes(term));
+      const matchesSearch = !term || [lead.name, lead.industry, lead.location, lead.phone, lead.email, lead.website, lead.notes].some((value) => value?.toLowerCase().includes(term));
       return matchesSearch && (statusFilter === "all" || (lead.status ?? "new") === statusFilter);
     });
   }, [leads, searchTerm, statusFilter]);
 
   const exportCsv = () => {
     if (!leads.length) return;
-    const headers = ["Name", "Industry", "Location", "Address", "Phone", "Email", "Website", "Google Maps Link"];
-    const rows = leads.map((lead) => [lead.name, lead.industry, lead.location, lead.address ?? "", lead.phone ?? "", lead.email ?? "", lead.website ?? "", lead.mapsLink ?? ""]);
+    const headers = ["Name", "Industry", "Location", "Address", "Phone", "Email", "Website", "Google Maps Link", "Status", "Follow-up date", "Notes"];
+    const rows = leads.map((lead) => [lead.name, lead.industry, lead.location, lead.address ?? "", lead.phone ?? "", lead.email ?? "", lead.website ?? "", lead.mapsLink ?? "", lead.status ?? "new", lead.followUpDate ?? "", lead.notes ?? ""]);
     const csv = [headers, ...rows].map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -395,7 +401,7 @@ function PowerexDashboard({ session }: { session: Session }) {
           industry={industry}
           location={location}
           queries={queries}
-          isLoading={isLoading}
+          isLoading={isLoading || isSavingLead}
           onIndustryChange={setIndustry}
           onLocationChange={setLocation}
           onSubmit={generateLeads}
@@ -416,7 +422,7 @@ function PowerexDashboard({ session }: { session: Session }) {
         <LeadsTable
           leads={filteredLeads}
           totalLeads={leads.length}
-          isLoading={isLoading}
+          isLoading={isLoading || isSavingLead}
           searchTerm={searchTerm}
           onSearchTermChange={setSearchTerm}
           onSyncLeads={syncLeads}
