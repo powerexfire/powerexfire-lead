@@ -12,7 +12,7 @@ export function makeLeadDedupeKey(lead: Pick<Lead, "name" | "location" | "phone"
     .replace(/^https?:\/\//, "")
     .replace(/^www\./, "")
     .split(/[/?#]/, 1)[0];
-  if (website) return `website:${website}|name:${name}`;
+  if (website) return `website:${website}`;
 
   const phone = (lead.phone ?? "").replace(/\D/g, "");
   if (phone.length >= 7) return `phone:${phone}|name:${name}`;
