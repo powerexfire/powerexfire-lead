@@ -43,3 +43,7 @@ export function isSafeExternalUrl(value?: string) {
 export function statusLabel(status?: LeadStatus) {
   return leadStatuses.find((value) => value === status) ?? "new";
 }
+
+export function isLeadStatus(value: string): value is LeadStatus {
+  return leadStatuses.includes(value as LeadStatus);
+}

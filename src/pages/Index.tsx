@@ -125,34 +125,39 @@ function PowerexDashboard({ session }: { session: Session }) {
   }, []);
 
   const persistLeadRecords = useCallback(async (input: Lead[]) => {
-    const uniqueLeads = dedupeLeads(input);
-    if (!uniqueLeads.length) {
-      await loadStoredLeads();
-      return { savedCount: 0, duplicateCount: input.length };
+    setIsSavingLead(true);
+    try {
+      const uniqueLeads = dedupeLeads(input);
+      if (!uniqueLeads.length) {
+        await loadStoredLeads();
+        return { savedCount: 0, duplicateCount: input.length };
+      }
+
+      const rows = uniqueLeads.map((lead) => ({
+        dedupe_key: makeLeadDedupeKey(lead),
+        user_id: session.user.id,
+        name: lead.name.trim().slice(0, 255),
+        industry: lead.industry.trim().slice(0, 80),
+        location: lead.location.trim().slice(0, 120),
+        address: lead.address?.trim().slice(0, 500) || null,
+        phone: lead.phone?.trim().slice(0, 80) || null,
+        email: lead.email?.trim().slice(0, 255) || null,
+        website: lead.website?.trim().slice(0, 500) || null,
+        maps_link: lead.mapsLink?.trim().slice(0, 1000) || null,
+      }));
+
+      const { data, error } = await supabase
+        .from("sales_leads")
+        .upsert(rows, { onConflict: "dedupe_key", ignoreDuplicates: true })
+        .select("id");
+
+      if (error) throw new Error(`Lead history could not be saved: ${error.message}`);
+      if (!(await loadStoredLeads())) throw new Error("Leads were saved, but the updated history could not be reloaded.");
+      const savedCount = data?.length ?? 0;
+      return { savedCount, duplicateCount: Math.max(0, input.length - savedCount) };
+    } finally {
+      setIsSavingLead(false);
     }
-
-    const rows = uniqueLeads.map((lead) => ({
-      dedupe_key: makeLeadDedupeKey(lead),
-      user_id: session.user.id,
-      name: lead.name.trim().slice(0, 255),
-      industry: lead.industry.trim().slice(0, 80),
-      location: lead.location.trim().slice(0, 120),
-      address: lead.address?.trim().slice(0, 500) || null,
-      phone: lead.phone?.trim().slice(0, 80) || null,
-      email: lead.email?.trim().slice(0, 255) || null,
-      website: lead.website?.trim().slice(0, 500) || null,
-      maps_link: lead.mapsLink?.trim().slice(0, 1000) || null,
-    }));
-
-    const { data, error } = await supabase
-      .from("sales_leads")
-      .upsert(rows, { onConflict: "dedupe_key", ignoreDuplicates: true })
-      .select("id");
-
-    if (error) throw new Error(`Lead history could not be saved: ${error.message}`);
-    if (!(await loadStoredLeads())) throw new Error("Leads were saved, but the updated history could not be reloaded.");
-    const savedCount = data?.length ?? 0;
-    return { savedCount, duplicateCount: Math.max(0, input.length - savedCount) };
   }, [loadStoredLeads, session.user.id]);
 
   const runAction = useCallback(async (body: Record<string, unknown>, loadingMessage: string, options?: { silent?: boolean }) => {
@@ -395,7 +400,7 @@ function PowerexDashboard({ session }: { session: Session }) {
           industry={industry}
           location={location}
           queries={queries}
-          isLoading={isLoading}
+          isLoading={isLoading || isSavingLead}
           onIndustryChange={setIndustry}
           onLocationChange={setLocation}
           onSubmit={generateLeads}
@@ -416,7 +421,7 @@ function PowerexDashboard({ session }: { session: Session }) {
         <LeadsTable
           leads={filteredLeads}
           totalLeads={leads.length}
-          isLoading={isLoading}
+          isLoading={isLoading || isSavingLead}
           searchTerm={searchTerm}
           onSearchTermChange={setSearchTerm}
           onSyncLeads={syncLeads}

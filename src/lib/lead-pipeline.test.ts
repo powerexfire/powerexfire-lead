@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dedupeLeads, isSafeExternalUrl, makeLeadDedupeKey, statusLabel } from "./lead-pipeline";
+import { dedupeLeads, isLeadStatus, isSafeExternalUrl, makeLeadDedupeKey, statusLabel } from "./lead-pipeline";
 import type { Lead, LeadStatus } from "@/components/powerex/types";
 
 const sampleLead = (overrides: Partial<Lead> = {}): Lead => ({
@@ -28,6 +28,11 @@ describe("lead pipeline rules", () => {
   it("defaults unknown pipeline stages to new", () => {
     expect(statusLabel("new")).toBe("new");
     expect(statusLabel(undefined as LeadStatus | undefined)).toBe("new");
+  });
+
+  it("accepts only the five pipeline stages", () => {
+    expect(["new", "contacted", "qualified", "won", "lost"].every(isLeadStatus)).toBe(true);
+    expect(isLeadStatus("pending")).toBe(false);
   });
 
   it("only allows http and https links to be opened externally", () => {
