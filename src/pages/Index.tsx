@@ -336,8 +336,8 @@ function PowerexDashboard({ session }: { session: Session }) {
 
   const exportCsv = () => {
     if (!leads.length) return;
-    const headers = ["Name", "Industry", "Location", "Address", "Phone", "Email", "Website", "Google Maps Link"];
-    const rows = leads.map((lead) => [lead.name, lead.industry, lead.location, lead.address ?? "", lead.phone ?? "", lead.email ?? "", lead.website ?? "", lead.mapsLink ?? ""]);
+    const headers = ["Name", "Industry", "Location", "Address", "Phone", "Email", "Website", "Google Maps Link", "Status", "Follow-up date", "Notes"];
+    const rows = leads.map((lead) => [lead.name, lead.industry, lead.location, lead.address ?? "", lead.phone ?? "", lead.email ?? "", lead.website ?? "", lead.mapsLink ?? "", lead.status ?? "new", lead.followUpDate ?? "", lead.notes ?? ""]);
     const csv = [headers, ...rows].map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
