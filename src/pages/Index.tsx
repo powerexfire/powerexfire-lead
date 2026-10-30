@@ -270,27 +270,28 @@ function PowerexDashboard({ session }: { session: Session }) {
 
   const saveLeadDetails = useCallback(async (lead: Lead, changes: { status: LeadStatus; notes: string; followUpDate: string | null }) => {
     setIsSavingLead(true);
-    const { error } = await supabase.from("sales_leads").update({
-      status: changes.status,
-      notes: changes.notes,
-      follow_up_date: changes.followUpDate,
-    }).eq("id", lead.id);
+    try {
+      const { error } = await supabase.from("sales_leads").update({
+        status: changes.status,
+        notes: changes.notes,
+        follow_up_date: changes.followUpDate,
+      }).eq("id", lead.id);
 
-    if (error) {
-      const message = `Lead follow-up could not be saved: ${error.message}`;
+      if (error) throw error;
+
+      setLeads((current) => current.map((item) => item.id === lead.id ? { ...item, ...changes } : item));
+      setSelectedLead(null);
+      setStatusTone("success");
+      setStatusMessage(`Follow-up details saved for ${lead.name}.`);
+      toast.success("Follow-up details saved");
+    } catch (error) {
+      const message = `Lead follow-up could not be saved: ${error instanceof Error ? error.message : "Please retry."}`;
       setStatusTone("error");
       setStatusMessage(message);
       toast.error(message);
+    } finally {
       setIsSavingLead(false);
-      return;
     }
-
-    setLeads((current) => current.map((item) => item.id === lead.id ? { ...item, ...changes } : item));
-    setSelectedLead(null);
-    setStatusTone("success");
-    setStatusMessage(`Follow-up details saved for ${lead.name}.`);
-    toast.success("Follow-up details saved");
-    setIsSavingLead(false);
   }, []);
 
   const assignRole = useCallback(async (email: string, role: AppRole) => {
