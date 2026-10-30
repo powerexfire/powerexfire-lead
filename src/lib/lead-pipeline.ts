@@ -15,7 +15,7 @@ export function makeLeadDedupeKey(lead: Pick<Lead, "name" | "location" | "phone"
   if (website) return `website:${website}`;
 
   const phone = (lead.phone ?? "").replace(/\D/g, "");
-  if (phone.length >= 7) return `phone:${phone}|name:${name}`;
+  if (phone.length >= 7) return `phone:${phone}`;
 
   return `name:${name}|location:${clean(lead.location)}`;
 }

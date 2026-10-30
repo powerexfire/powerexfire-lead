@@ -95,6 +95,7 @@ function PowerexDashboard({ session }: { session: Session }) {
         .from("sales_leads")
         .select("id,name,industry,location,address,phone,email,website,maps_link,status,notes,follow_up_date")
         .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
         .range(offset, offset + pageSize - 1);
 
       if (error) {
@@ -327,9 +328,8 @@ function PowerexDashboard({ session }: { session: Session }) {
 
   const filteredLeads = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
-    if (!term) return leads;
     return leads.filter((lead) => {
-      const matchesSearch = [lead.name, lead.industry, lead.location, lead.phone, lead.email, lead.website, lead.notes].some((value) => value?.toLowerCase().includes(term));
+      const matchesSearch = !term || [lead.name, lead.industry, lead.location, lead.phone, lead.email, lead.website, lead.notes].some((value) => value?.toLowerCase().includes(term));
       return matchesSearch && (statusFilter === "all" || (lead.status ?? "new") === statusFilter);
     });
   }, [leads, searchTerm, statusFilter]);
