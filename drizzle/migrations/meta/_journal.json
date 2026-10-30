@@ -8,6 +8,13 @@
       "when": 1792765080034,
       "tag": "0000_create_sales_leads_pipeline",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793371403486,
+      "tag": "0001_tighten_sales_lead_validation",
+      "breakpoints": true
     }
   ]
 }
