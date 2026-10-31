@@ -1,40 +1,33 @@
-import { Crown, Flame, Gauge, LogOut } from "lucide-react";
+import { Crown, Gauge, LogOut, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SidebarTrigger } from "@/components/ui/sidebar";
+import { usePowerexWorkspace } from "./WorkspaceContext";
 import type { AppRole } from "./types";
 
-const navItems = ["Dashboard", "Leads", "Settings"];
+export function PowerexNavbar({ userEmail, onSignOut }: { userEmail?: string; onSignOut: () => void }) {
+  const { currentRole } = usePowerexWorkspace();
+  const role: AppRole = currentRole;
 
-type PowerexNavbarProps = {
-  userEmail?: string;
-  role: AppRole;
-  onSignOut: () => void;
-};
-
-export function PowerexNavbar({ userEmail, role, onSignOut }: PowerexNavbarProps) {
   return (
     <header className="sticky top-0 z-30 border-b border-border/70 bg-background/88 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-4 sm:px-6 lg:px-8">
-        <a href="#dashboard" className="flex items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Powerex Fire dashboard home">
-          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-fire">
-            <Flame className="h-6 w-6" aria-hidden="true" />
-          </div>
-          <div>
-            <p className="text-lg font-black tracking-normal text-foreground">Powerex Fire</p>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">Lead Command</p>
-          </div>
-        </a>
-
-        <nav className="hidden items-center rounded-lg border border-border/80 bg-card px-1 py-1 shadow-sm md:flex" aria-label="Primary navigation">
-          {navItems.map((item) => (
-            <a
-              key={item}
-              href={`#${item.toLowerCase()}`}
-              className="rounded-md px-4 py-2 text-sm font-bold text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              {item}
-            </a>
-          ))}
-        </nav>
+      <div className="flex items-center justify-between gap-3 px-4 py-4 sm:px-6 lg:px-8">
+        <div className="flex min-w-0 items-center gap-3">
+          <SidebarTrigger
+            className="rounded-lg border border-border bg-card p-2 text-foreground shadow-sm hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label="Toggle navigation menu"
+          >
+            <Menu className="h-4 w-4" aria-hidden="true" />
+          </SidebarTrigger>
+          <a href="/leads" className="flex items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Powerex Fire leads home">
+            <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-fire">
+              <Crown aria-hidden="true" />
+            </div>
+            <div>
+              <p className="text-lg font-black tracking-normal text-foreground">Powerex Fire</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">Lead Command</p>
+            </div>
+          </a>
+        </div>
 
         <div className="flex min-w-0 items-center gap-2">
           <div className="flex min-w-0 items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-bold text-foreground shadow-sm">
