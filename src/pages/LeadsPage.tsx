@@ -38,7 +38,7 @@ const LeadsPage = () => {
   }, []);
 
   return (
-    <div className="grid gap-6">
+    <div className="grid min-w-0 gap-6 [&>*]:min-w-0">
       <LeadSearchForm
         industry={industry}
         location={location}
