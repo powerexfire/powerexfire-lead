@@ -1,1 +1,2 @@
 - Keep durable lead records and sales follow-up state in the authenticated shared database pipeline, while Google Sheets remains an integration source and export surface, so team follow-up survives syncs and sessions.
+- App shell: authenticated layout route renders a shadcn sidebar (Leads, Settings) plus routes `/leads` and `/settings`; shared state lives in `WorkspaceProvider` (`src/components/powerex/WorkspaceContext.tsx`) consumed by both pages — keep page state there, not duplicated per page.
