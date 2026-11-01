@@ -1,9 +1,8 @@
 import { useEffect } from "react";
 import { usePowerexWorkspace } from "@/components/powerex/WorkspaceContext";
-import { LeadSearchForm } from "@/components/powerex/LeadSearchForm";
+import { LeadsHeader } from "@/components/powerex/LeadsHeader";
+import { StatusBar } from "@/components/powerex/StatusBar";
 import { LeadsTable } from "@/components/powerex/LeadsTable";
-import { StatusPanel } from "@/components/powerex/StatusPanel";
-import { LeadMetrics } from "@/components/powerex/LeadMetrics";
 import { LeadDetailsDialog } from "@/components/powerex/LeadDetailsDialog";
 
 const LeadsPage = () => {
@@ -25,7 +24,6 @@ const LeadsPage = () => {
     setStatusFilter,
     setSelectedLead,
     generateLeads,
-    syncQueries,
     syncLeads,
     saveLeadDetails,
     copyValue,
@@ -38,25 +36,18 @@ const LeadsPage = () => {
   }, []);
 
   return (
-    <div className="grid min-w-0 gap-6 [&>*]:min-w-0">
-      <LeadSearchForm
+    <div className="grid min-w-0 gap-4 [&>*]:min-w-0">
+      <LeadsHeader
         industry={industry}
         location={location}
+        leads={leads}
         isLoading={isLoading || isSavingLead}
         onIndustryChange={setIndustry}
         onLocationChange={setLocation}
         onSubmit={generateLeads}
-        onSyncQueries={syncQueries}
       />
 
-      <StatusPanel
-        tone={statusTone}
-        message={statusMessage}
-        leadCount={leads.length}
-        onRetry={retryLastAction}
-      />
-
-      <LeadMetrics leads={leads} />
+      <StatusBar tone={statusTone} message={statusMessage} onRetry={retryLastAction} />
 
       <LeadsTable
         leads={filteredLeads}
