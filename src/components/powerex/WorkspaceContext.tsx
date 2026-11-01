@@ -52,6 +52,7 @@ type WorkspaceValue = {
   saveLeadDetails: (lead: Lead, changes: { status: LeadStatus; notes: string; followUpDate: string | null }) => Promise<void>;
   assignRole: (email: string, role: AppRole) => Promise<void>;
   applyQuery: (query: SearchQuery) => void;
+  retryLastAction: () => void;
   loadActivity: () => Promise<void>;
   loadUsers: (silent?: boolean) => Promise<void>;
   copyValue: (value: string, label: string) => Promise<void>;
@@ -335,6 +336,10 @@ export function WorkspaceProvider({ session, children }: { session: Session; chi
     setStatusTone("idle");
     setStatusMessage(query.query ? `Loaded query: ${query.query}` : "Search query loaded.");
   }, [industry, location]);
+
+  const retryLastAction = useCallback(() => {
+    lastActionRef.current?.();
+  }, []);
 
   const copyValue = useCallback(async (value: string, label: string) => {
     try {
