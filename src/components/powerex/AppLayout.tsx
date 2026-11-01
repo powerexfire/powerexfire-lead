@@ -20,12 +20,12 @@ export function AppLayout({ session }: { session: Session }) {
 
   return (
     <WorkspaceProvider session={session}>
-      <SidebarProvider>
+      <SidebarProvider defaultOpen={false}>
         <div className="industrial-shell flex min-h-screen w-full">
           <AppSidebar />
           <div className="flex min-w-0 flex-1 flex-col">
             <PowerexNavbar userEmail={session.user.email} onSignOut={handleSignOut} />
-            <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8">
+            <main className="w-full flex-1 px-3 py-4 sm:px-5 lg:px-6">
               <Outlet />
             </main>
           </div>
