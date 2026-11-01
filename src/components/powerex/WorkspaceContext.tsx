@@ -52,6 +52,7 @@ type WorkspaceValue = {
   saveLeadDetails: (lead: Lead, changes: { status: LeadStatus; notes: string; followUpDate: string | null }) => Promise<void>;
   assignRole: (email: string, role: AppRole) => Promise<void>;
   applyQuery: (query: SearchQuery) => void;
+  retryLastAction: () => void;
   loadActivity: () => Promise<void>;
   loadUsers: (silent?: boolean) => Promise<void>;
   copyValue: (value: string, label: string) => Promise<void>;
@@ -336,6 +337,10 @@ export function WorkspaceProvider({ session, children }: { session: Session; chi
     setStatusMessage(query.query ? `Loaded query: ${query.query}` : "Search query loaded.");
   }, [industry, location]);
 
+  const retryLastAction = useCallback(() => {
+    lastActionRef.current?.();
+  }, []);
+
   const copyValue = useCallback(async (value: string, label: string) => {
     try {
       await navigator.clipboard.writeText(value);
@@ -404,6 +409,7 @@ export function WorkspaceProvider({ session, children }: { session: Session; chi
     saveLeadDetails,
     assignRole,
     applyQuery,
+    retryLastAction,
     loadActivity,
     loadUsers,
     copyValue,
@@ -411,7 +417,7 @@ export function WorkspaceProvider({ session, children }: { session: Session; chi
   }), [
     session, industry, location, leads, queries, activity, users, currentRole, statusTone, statusMessage,
     isLoading, isSavingLead, isUserLoading, searchTerm, statusFilter, selectedLead, filteredLeads, activeQuery,
-    generateLeads, syncQueries, syncLeads, saveLeadDetails, assignRole, applyQuery, loadActivity, loadUsers, copyValue, exportCsv,
+    generateLeads, syncQueries, syncLeads, saveLeadDetails, assignRole, applyQuery, retryLastAction, loadActivity, loadUsers, copyValue, exportCsv,
   ]);
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;

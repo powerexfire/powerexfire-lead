@@ -1,5 +1,4 @@
 import { useEffect } from "react";
-import { Flame } from "lucide-react";
 import { usePowerexWorkspace } from "@/components/powerex/WorkspaceContext";
 import { LeadSearchForm } from "@/components/powerex/LeadSearchForm";
 import { LeadsTable } from "@/components/powerex/LeadsTable";
@@ -10,11 +9,8 @@ import { LeadDetailsDialog } from "@/components/powerex/LeadDetailsDialog";
 const LeadsPage = () => {
   const {
     leads,
-    queries,
-    currentRole,
     statusTone,
     statusMessage,
-    activeQuery,
     isLoading,
     isSavingLead,
     searchTerm,
@@ -32,35 +28,32 @@ const LeadsPage = () => {
     syncQueries,
     syncLeads,
     saveLeadDetails,
-    applyQuery,
     copyValue,
     exportCsv,
-    loadActivity,
+    retryLastAction,
   } = usePowerexWorkspace();
 
   useEffect(() => {
-    void loadActivity();
-  }, [loadActivity]);
+    document.title = "Powerex Fire · Leads";
+  }, []);
 
   return (
-    <div className="grid gap-6">
+    <div className="grid min-w-0 gap-6 [&>*]:min-w-0">
       <LeadSearchForm
         industry={industry}
         location={location}
-        queries={queries}
         isLoading={isLoading || isSavingLead}
         onIndustryChange={setIndustry}
         onLocationChange={setLocation}
         onSubmit={generateLeads}
         onSyncQueries={syncQueries}
-        onApplyQuery={applyQuery}
       />
 
       <StatusPanel
         tone={statusTone}
-        message={activeQuery?.query ? `${statusMessage} Active query: ${activeQuery.query}` : statusMessage}
+        message={statusMessage}
         leadCount={leads.length}
-        onRetry={undefined}
+        onRetry={retryLastAction}
       />
 
       <LeadMetrics leads={leads} />
@@ -86,9 +79,6 @@ const LeadsPage = () => {
         onOpenChange={(open) => { if (!open) setSelectedLead(null); }}
         onSave={saveLeadDetails}
       />
-
-      <span className="sr-only" aria-live="polite">{`Signed in role: ${currentRole}`}</span>
-      <Flame className="hidden" aria-hidden="true" />
     </div>
   );
 };

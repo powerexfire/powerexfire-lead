@@ -1,7 +1,6 @@
 import { FormEvent } from "react";
 import { Loader2, RotateCw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { SearchQuery } from "./types";
 
 const industries = ["Warehouse", "Factory", "Hospital", "Hotel", "Commercial Building", "Housing Societies", "Schools", "Colleges", "Restaurants", "Clinics"];
 const locationPattern = /^[a-zA-Z0-9\s,.'-]{2,120}$/;
@@ -9,25 +8,21 @@ const locationPattern = /^[a-zA-Z0-9\s,.'-]{2,120}$/;
 type LeadSearchFormProps = {
   industry: string;
   location: string;
-  queries: SearchQuery[];
   isLoading: boolean;
   onIndustryChange: (value: string) => void;
   onLocationChange: (value: string) => void;
   onSubmit: () => void;
   onSyncQueries: () => void;
-  onApplyQuery: (query: SearchQuery) => void;
 };
 
 export function LeadSearchForm({
   industry,
   location,
-  queries,
   isLoading,
   onIndustryChange,
   onLocationChange,
   onSubmit,
   onSyncQueries,
-  onApplyQuery,
 }: LeadSearchFormProps) {
   const trimmedLocation = location.trim();
   const locationError = trimmedLocation && !locationPattern.test(trimmedLocation) ? "Use 2-120 letters, numbers, spaces, commas, dots or hyphens." : "";
@@ -39,7 +34,7 @@ export function LeadSearchForm({
   };
 
   return (
-    <section id="dashboard" className="rounded-xl border border-border bg-card p-5 shadow-industrial sm:p-6">
+    <section className="rounded-xl border border-border bg-card p-5 shadow-industrial sm:p-6">
       <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-sm font-black uppercase tracking-[0.24em] text-primary">Lead Search</p>
@@ -88,28 +83,6 @@ export function LeadSearchForm({
           Generate Leads
         </Button>
       </form>
-
-      {queries.length > 0 ? (
-        <div className="mt-6 rounded-lg border border-border bg-background p-4">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <p className="text-sm font-black uppercase tracking-[0.18em] text-muted-foreground">Synced queries</p>
-            <span className="text-sm font-black text-primary">{queries.length}</span>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3" aria-label="Synced search queries">
-            {queries.slice(0, 9).map((query) => (
-              <button
-                key={query.id ?? query.query}
-                type="button"
-                onClick={() => onApplyQuery(query)}
-                className="rounded-lg border border-border bg-card p-3 text-left transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <span className="block font-black text-foreground">{query.industry || "Industry"}</span>
-                <span className="mt-1 block text-sm font-semibold text-muted-foreground">{query.location || query.query}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : null}
     </section>
   );
 }
