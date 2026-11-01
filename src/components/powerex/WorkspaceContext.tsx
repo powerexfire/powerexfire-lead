@@ -409,6 +409,7 @@ export function WorkspaceProvider({ session, children }: { session: Session; chi
     saveLeadDetails,
     assignRole,
     applyQuery,
+    retryLastAction,
     loadActivity,
     loadUsers,
     copyValue,
@@ -416,7 +417,7 @@ export function WorkspaceProvider({ session, children }: { session: Session; chi
   }), [
     session, industry, location, leads, queries, activity, users, currentRole, statusTone, statusMessage,
     isLoading, isSavingLead, isUserLoading, searchTerm, statusFilter, selectedLead, filteredLeads, activeQuery,
-    generateLeads, syncQueries, syncLeads, saveLeadDetails, assignRole, applyQuery, loadActivity, loadUsers, copyValue, exportCsv,
+    generateLeads, syncQueries, syncLeads, saveLeadDetails, assignRole, applyQuery, retryLastAction, loadActivity, loadUsers, copyValue, exportCsv,
   ]);
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;
